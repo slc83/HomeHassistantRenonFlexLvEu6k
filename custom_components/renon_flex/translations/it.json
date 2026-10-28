@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Stick Logger RENON FLEX",
+        "description": "Inserisci i dati del logger. Per Solarman V5 usa normalmente la porta 8899 e il numero seriale del logger (non dell’inverter); per Modbus TCP usa la porta esposta dal dispositivo (normalmente 502). La mappa dei registri deve corrispondere al firmware dell’inverter.",
+        "data": {
+          "host": "Host (indirizzo IP o nome)",
+          "port": "Porta",
+          "slave_id": "ID unità Modbus",
+          "protocol": "Protocollo",
+          "serial": "Numero seriale del logger (solo Solarman V5)"
+        }
+      },
+      "reconfigure": {
+        "title": "Stick Logger RENON FLEX",
+        "description": "Inserisci i dati del logger. Per Solarman V5 usa normalmente la porta 8899 e il numero seriale del logger (non dell’inverter); per Modbus TCP usa la porta esposta dal dispositivo (normalmente 502). La mappa dei registri deve corrispondere al firmware dell’inverter.",
+        "data": {
+          "host": "Host (indirizzo IP o nome)",
+          "port": "Porta",
+          "slave_id": "ID unità Modbus",
+          "protocol": "Protocollo",
+          "serial": "Numero seriale del logger (solo Solarman V5)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile connettersi al dispositivo. Controlla host, porta e ID unità Modbus.",
+      "serial_required": "Inserisci il numero seriale del logger per Solarman V5."
+    },
+    "abort": {
+      "single_instance_allowed": "Il dispositivo è già configurato.",
+      "reconfigure_successful": "Configurazione aggiornata."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "power_active": {
+        "name": "Potenza attiva"
+      },
+      "power_reactive": {
+        "name": "Potenza reattiva"
+      },
+      "voltage_dc": {
+        "name": "Tensione CC"
+      },
+      "voltage_ac": {
+        "name": "Tensione CA"
+      },
+      "current_dc": {
+        "name": "Corrente CC"
+      },
+      "current_ac": {
+        "name": "Corrente CA"
+      },
+      "state": {
+        "name": "Stato inverter"
+      },
+      "energy_today": {
+        "name": "Energia prodotta oggi"
+      }
+    }
+  }
+}

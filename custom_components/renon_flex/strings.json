@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RENON FLEX Stick Logger",
+        "description": "Enter the logger connection details. For Solarman V5 normally use port 8899 and the logger serial number (not the inverter serial); for Modbus TCP use the device port (normally 502). The register map must match the inverter firmware.",
+        "data": {
+          "host": "Host (IP address or hostname)",
+          "port": "Port",
+          "slave_id": "Modbus unit ID",
+          "protocol": "Protocol",
+          "serial": "Logger serial number (Solarman V5 only)"
+        }
+      },
+      "reconfigure": {
+        "title": "RENON FLEX Stick Logger",
+        "description": "Enter the logger connection details. For Solarman V5 normally use port 8899 and the logger serial number (not the inverter serial); for Modbus TCP use the device port (normally 502). The register map must match the inverter firmware.",
+        "data": {
+          "host": "Host (IP address or hostname)",
+          "port": "Port",
+          "slave_id": "Modbus unit ID",
+          "protocol": "Protocol",
+          "serial": "Logger serial number (Solarman V5 only)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device. Check host, port and Modbus unit ID.",
+      "serial_required": "Enter the logger serial number for Solarman V5."
+    },
+    "abort": {
+      "single_instance_allowed": "This device is already configured.",
+      "reconfigure_successful": "Configuration updated."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "power_active": {
+        "name": "Active power"
+      },
+      "power_reactive": {
+        "name": "Reactive power"
+      },
+      "voltage_dc": {
+        "name": "DC voltage"
+      },
+      "voltage_ac": {
+        "name": "AC voltage"
+      },
+      "current_dc": {
+        "name": "DC current"
+      },
+      "current_ac": {
+        "name": "AC current"
+      },
+      "state": {
+        "name": "Inverter state"
+      },
+      "energy_today": {
+        "name": "Energy today"
+      }
+    }
+  }
+}
