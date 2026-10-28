@@ -1,9 +1,8 @@
-"""Constants for the RENON FLEX Stick Logger integration."""
+"""RENON Flex IFL register definitions and connection settings."""
 
 from dataclasses import dataclass
 
 DOMAIN = "renon_flex"
-
 MANUFACTURER = "RENON"
 MODEL = "FLEX-LV-EU-6K"
 LOGGER_MODEL = "Stick Logger LSW-5"
@@ -14,101 +13,46 @@ CONF_PORT = "port"
 CONF_SLAVE_ID = "slave_id"
 CONF_PROTOCOL = "protocol"
 CONF_SERIAL = "serial"
+CONF_TIMEOUT = "timeout"
 PROTOCOL_MODBUS = "modbus_tcp"
 PROTOCOL_SOLARMAN = "solarman"
-
 DEFAULT_PORT = 502
 DEFAULT_SLAVE_ID = 1
-DEFAULT_SCAN_INTERVAL = 10  # seconds
+DEFAULT_SCAN_INTERVAL = 10
+DEFAULT_TIMEOUT = 15
+
+# Community profile, not an official RENON protocol specification:
+# https://github.com/davidrapan/ha-solarman/blob/main/custom_components/solarman/inverter_definitions/renon_ifl.yaml
+# FC03, PDU addresses (no 40001 offset). Multiword values are low word first,
+# as implemented by the source profile's parser. Read only known contiguous
+# registers: in particular, 0x2280 is NOT included between the PV power words.
+PROFILE_NAME = "RENON Flex IFL (community)"
+PROFILE_SOURCE = "https://github.com/davidrapan/ha-solarman/blob/main/custom_components/solarman/inverter_definitions/renon_ifl.yaml"
 
 
 @dataclass(frozen=True)
 class Register:
-    """A single holding register exposed by the Stick Logger.
-
-    index:
-        Position of the register inside the contiguous block read in a
-        single Modbus request (0-based).
-    scale:
-        Multiplier applied to the raw 16-bit value to obtain the
-        engineering value (e.g. 0.1 if the logger reports deciwatts).
-    device_class / state_class:
-        Home Assistant sensor class names (mapped to the matching enums
-        in sensor.py).
-    """
+    """A measured value from the IFL profile, with engineering units."""
 
     key: str
-    index: int
+    address: int
     scale: float = 1.0
     unit: str | None = None
     device_class: str | None = None
-    state_class: str | None = None
+    state_class: str = "measurement"
+    count: int = 1
 
-
-# ---------------------------------------------------------------------------
-# Modbus holding register map.
-#
-# pymodbus uses 0-based PDU addresses, so register "40001" in a classic
-# Modbus map is address 0 here. This is the original project's assumed
-# seven-register layout, NOT a manufacturer-verified RENON register map.
-# Confirm addresses, data types, scales and states against the inverter's
-# protocol documentation before relying on the readings. The logger is a
-# transport; it does not define the inverter's register map.
-# ---------------------------------------------------------------------------
-FIRST_REGISTER = 0
-REGISTER_COUNT = 7
 
 REGISTERS: tuple[Register, ...] = (
-    Register(
-        key="power_active",
-        index=0,
-        unit="W",
-        device_class="power",
-        state_class="measurement",
-    ),
-    Register(key="power_reactive", index=1, unit="var", state_class="measurement"),
-    Register(
-        key="voltage_dc",
-        index=2,
-        unit="V",
-        device_class="voltage",
-        state_class="measurement",
-    ),
-    Register(
-        key="voltage_ac",
-        index=3,
-        unit="V",
-        device_class="voltage",
-        state_class="measurement",
-    ),
-    Register(
-        key="current_dc",
-        index=4,
-        unit="A",
-        device_class="current",
-        state_class="measurement",
-    ),
-    Register(
-        key="current_ac",
-        index=5,
-        unit="A",
-        device_class="current",
-        state_class="measurement",
-    ),
+    Register("voltage_dc", 0x1690, 0.1, "V", "voltage"),
+    Register("current_dc", 0x1691, 0.1, "A", "current"),
+    Register("voltage_dc2", 0x1692, 0.1, "V", "voltage"),
+    Register("current_dc2", 0x1693, 0.1, "A", "current"),
+    Register("power_pv1", 0x227F, 1.0, "W", "power"),
+    Register("power_pv2", 0x2281, 1.0, "W", "power"),
+    Register("voltage_ac", 0x3110, 0.1, "V", "voltage"),
+    Register("current_ac", 0x3111, 0.1, "A", "current"),
+    Register("energy_today", 0x3153, 0.001, "kWh", "energy", "total_increasing", 2),
 )
-
-# Position of the inverter state register inside the block.
-STATE_REGISTER_INDEX = 6
-
-# Raw state register value -> human readable state.
-# Adjust to match the state table in the logger manual.
-STATE_MAP: dict[int, str] = {
-    0: "off",
-    1: "standby",
-    2: "working",
-    3: "fault",
-}
-
-# Keys used in the coordinator data dict.
-STATE_KEY = "state"
+READ_BLOCKS = ((0x1690, 4), (0x227F, 1), (0x2281, 1), (0x3110, 2), (0x3153, 2))
 ENERGY_KEY = "energy_today"

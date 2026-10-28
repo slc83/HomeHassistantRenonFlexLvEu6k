@@ -10,9 +10,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    UnitOfEnergy,
-)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -31,7 +28,7 @@ DEVICE_CLASSES = {
 
 STATE_CLASSES = {
     "measurement": SensorStateClass.MEASUREMENT,
-    "total": SensorStateClass.TOTAL,
+    "total_increasing": SensorStateClass.TOTAL_INCREASING,
 }
 
 
@@ -45,8 +42,17 @@ async def async_setup_entry(
     entities: list[SensorEntity] = [
         RenonFlexSensor(coordinator, entry, reg) for reg in const.REGISTERS
     ]
-    entities.append(RenonFlexStateSensor(coordinator, entry))
-    entities.append(RenonFlexEnergySensor(coordinator, entry))
+    entities.append(
+        RenonFlexBaseSensor(
+            coordinator,
+            entry,
+            "power_active",
+            device_class=SensorDeviceClass.POWER,
+            unit="W",
+            state_class=SensorStateClass.MEASUREMENT,
+        )
+    )
+    entities.append(RenonFlexEstimatedPV1PowerSensor(coordinator, entry))
     async_add_entities(entities)
 
 
@@ -78,6 +84,13 @@ class RenonFlexBaseSensor(CoordinatorEntity[RenonFlexCoordinator], SensorEntity)
         self._attr_device_class = device_class
         self._attr_native_unit_of_measurement = unit
         self._attr_state_class = state_class
+        if device_class == SensorDeviceClass.ENERGY:
+            self._attr_suggested_display_precision = 3
+
+    @property
+    def available(self) -> bool:
+        """A rejected measurement is unavailable even when other readings succeed."""
+        return super().available and self.coordinator.data.get(self._key) is not None
 
     @property
     def native_value(self) -> Any:
@@ -89,7 +102,7 @@ class RenonFlexBaseSensor(CoordinatorEntity[RenonFlexCoordinator], SensorEntity)
 
 
 class RenonFlexSensor(RenonFlexBaseSensor):
-    """A sensor mapped to a single Modbus holding register."""
+    """A sensor mapped to one or two Modbus holding registers."""
 
     def __init__(
         self,
@@ -107,33 +120,32 @@ class RenonFlexSensor(RenonFlexBaseSensor):
         )
 
 
-class RenonFlexStateSensor(RenonFlexBaseSensor):
-    """Inverter state (off / standby / working / fault)."""
+class RenonFlexEstimatedPV1PowerSensor(RenonFlexBaseSensor):
+    """Instantaneous DC power calculated from the same poll's PV1 voltage/current."""
 
-    def __init__(
-        self,
-        coordinator: RenonFlexCoordinator,
-        entry: ConfigEntry,
-    ) -> None:
-        super().__init__(coordinator, entry, const.STATE_KEY)
-        self._attr_device_class = SensorDeviceClass.ENUM
-        self._attr_options = [*const.STATE_MAP.values(), "unknown"]
+    _attr_suggested_display_precision = 1
+    _attr_icon = "mdi:solar-power"
 
-
-class RenonFlexEnergySensor(RenonFlexBaseSensor):
-    """Energy produced today, estimated by integrating the active power."""
-
-    def __init__(
-        self,
-        coordinator: RenonFlexCoordinator,
-        entry: ConfigEntry,
-    ) -> None:
+    def __init__(self, coordinator: RenonFlexCoordinator, entry: ConfigEntry) -> None:
         super().__init__(
             coordinator,
             entry,
-            const.ENERGY_KEY,
-            device_class=SensorDeviceClass.ENERGY,
-            unit=UnitOfEnergy.KILO_WATT_HOUR,
-            state_class=SensorStateClass.TOTAL_INCREASING,
+            "power_pv1_estimated",
+            device_class=SensorDeviceClass.POWER,
+            unit="W",
+            state_class=SensorStateClass.MEASUREMENT,
         )
-        self._attr_suggested_display_precision = 3
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and self.native_value is not None
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        if data is None:
+            return None
+        voltage, current = data.get("voltage_dc"), data.get("current_dc")
+        if voltage is None or current is None:
+            return None
+        return round(voltage * current, 2)

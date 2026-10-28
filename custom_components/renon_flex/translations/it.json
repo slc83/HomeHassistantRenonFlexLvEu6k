@@ -3,30 +3,41 @@
     "step": {
       "user": {
         "title": "Stick Logger RENON FLEX",
-        "description": "Inserisci i dati del logger. Per Solarman V5 usa normalmente la porta 8899 e il numero seriale del logger (non dell’inverter); per Modbus TCP usa la porta esposta dal dispositivo (normalmente 502). La mappa dei registri deve corrispondere al firmware dell’inverter.",
+        "description": "Profilo RENON Flex IFL (community). Inserisci solo l’IP del logger. Per Solarman V5 usa la porta 8899 e il seriale numerico del logger, non dell’inverter. Per Modbus TCP usa la porta del gateway. Le misure non supportate dal firmware resteranno non disponibili.\n\n{error_detail}",
         "data": {
           "host": "Host (indirizzo IP o nome)",
           "port": "Porta",
           "slave_id": "ID unità Modbus",
           "protocol": "Protocollo",
-          "serial": "Numero seriale del logger (solo Solarman V5)"
+          "serial": "Numero seriale del logger (solo Solarman V5)",
+          "timeout": "Tempo massimo di attesa (secondi)"
         }
       },
       "reconfigure": {
         "title": "Stick Logger RENON FLEX",
-        "description": "Inserisci i dati del logger. Per Solarman V5 usa normalmente la porta 8899 e il numero seriale del logger (non dell’inverter); per Modbus TCP usa la porta esposta dal dispositivo (normalmente 502). La mappa dei registri deve corrispondere al firmware dell’inverter.",
+        "description": "Profilo RENON Flex IFL (community). Inserisci solo l’IP del logger. Per Solarman V5 usa la porta 8899 e il seriale numerico del logger, non dell’inverter. Per Modbus TCP usa la porta del gateway. Le misure non supportate dal firmware resteranno non disponibili.\n\n{error_detail}",
         "data": {
           "host": "Host (indirizzo IP o nome)",
           "port": "Porta",
           "slave_id": "ID unità Modbus",
           "protocol": "Protocollo",
-          "serial": "Numero seriale del logger (solo Solarman V5)"
+          "serial": "Numero seriale del logger (solo Solarman V5)",
+          "timeout": "Tempo massimo di attesa (secondi)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Impossibile connettersi al dispositivo. Controlla host, porta e ID unità Modbus.",
-      "serial_required": "Inserisci il numero seriale del logger per Solarman V5."
+      "cannot_connect": "Connessione TCP al logger non riuscita. Controlla che la porta sia aperta e che il protocollo scelto sia disponibile.",
+      "serial_required": "Inserisci il numero seriale del logger per Solarman V5.",
+      "invalid_host": "Inserisci solo l’indirizzo IP o nome host del logger, senza http://, percorsi o porta.",
+      "connect_timeout": "Il logger non ha accettato la connessione entro il tempo previsto. Verifica rete e porta.",
+      "read_timeout": "Connessione TCP aperta, ma nessuna risposta valida entro il tempo previsto. Verifica protocollo, seriale del logger, ID Modbus e timeout.",
+      "invalid_registers": "Il dispositivo ha risposto, ma nessuna misura del profilo RENON Flex IFL è leggibile. Occorre una mappa compatibile con il firmware.",
+      "unsupported_function": "Il dispositivo ha risposto, ma non supporta la funzione Modbus richiesta.",
+      "modbus_error": "Il dispositivo ha restituito un errore Modbus. Consulta il dettaglio qui sopra.",
+      "protocol_error": "La risposta Solarman V5 non è valida. Verifica seriale del logger e compatibilità del protocollo.",
+      "invalid_response": "Il dispositivo ha restituito un numero di registri inatteso. Verifica la mappa Modbus.",
+      "read_error": "La connessione è stata aperta, ma la lettura è fallita. Consulta il dettaglio qui sopra."
     },
     "abort": {
       "single_instance_allowed": "Il dispositivo è già configurato.",
@@ -36,28 +47,37 @@
   "entity": {
     "sensor": {
       "power_active": {
-        "name": "Potenza attiva"
-      },
-      "power_reactive": {
-        "name": "Potenza reattiva"
+        "name": "Potenza FV totale"
       },
       "voltage_dc": {
-        "name": "Tensione CC"
+        "name": "Tensione FV1"
       },
       "voltage_ac": {
-        "name": "Tensione CA"
+        "name": "Tensione rete L1"
       },
       "current_dc": {
-        "name": "Corrente CC"
+        "name": "Corrente FV1"
       },
       "current_ac": {
-        "name": "Corrente CA"
-      },
-      "state": {
-        "name": "Stato inverter"
+        "name": "Corrente rete L1"
       },
       "energy_today": {
-        "name": "Energia prodotta oggi"
+        "name": "Energia FV prodotta oggi"
+      },
+      "voltage_dc2": {
+        "name": "Tensione FV2"
+      },
+      "current_dc2": {
+        "name": "Corrente FV2"
+      },
+      "power_pv1": {
+        "name": "Potenza FV1"
+      },
+      "power_pv2": {
+        "name": "Potenza FV2"
+      },
+      "power_pv1_estimated": {
+        "name": "Potenza FV1 stimata"
       }
     }
   }

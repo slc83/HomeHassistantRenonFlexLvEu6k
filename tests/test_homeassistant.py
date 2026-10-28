@@ -1,21 +1,29 @@
 """Exercise UI flows, entry setup, sensor registration and restart on Core."""
 
-import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
-from homeassistant.util import dt as dt_util
 
 from custom_components.renon_flex.client import RenonFlexError
-from custom_components.renon_flex.coordinator import RenonFlexCoordinator
+from custom_components.renon_flex.diagnostics import async_get_config_entry_diagnostics
 
-REGISTERS = [1000, 10, 360, 230, 3, 4, 2]
-FLOW_READ = "custom_components.renon_flex.config_flow.async_read_registers"
-POLL_READ = "custom_components.renon_flex.coordinator.async_read_registers"
+REGISTERS = {
+    "power_active": 1000.0,
+    "power_pv1": 600.0,
+    "power_pv2": 400.0,
+    "voltage_dc": 360.0,
+    "current_dc": 3.0,
+    "voltage_dc2": 350.0,
+    "current_dc2": 2.0,
+    "voltage_ac": 230.0,
+    "current_ac": 4.0,
+    "energy_today": 12.345,
+}
+FLOW_READ = "custom_components.renon_flex.config_flow.async_read_data"
+POLL_READ = "custom_components.renon_flex.coordinator.async_read_data"
 
 
 async def test_form_renders(hass):
@@ -71,18 +79,20 @@ async def test_setup_sensors_unavailability_recovery_and_unload(hass, entry):
         item.unique_id.removeprefix(f"{entry.entry_id}-"): item.entity_id
         for item in er.async_entries_for_config_entry(registry, entry.entry_id)
     }
-    assert len(entities) == 8
+    assert len(entities) == 11
     power = hass.states.get(entities["power_active"])
     assert power.state == "1000.0"
     assert (
-        power.name == "RENON FLEX Potenza attiva"
-        or power.name == "RENON FLEX Active power"
+        power.name == "RENON FLEX Potenza FV totale"
+        or power.name == "RENON FLEX Total PV power"
     )
     assert power.attributes["unit_of_measurement"] == "W"
     energy = hass.states.get(entities["energy_today"])
     assert energy.attributes["unit_of_measurement"] == "kWh"
     assert energy.attributes["state_class"] == "total_increasing"
-    assert hass.states.get(entities["state"]).state == "working"
+    assert energy.state == "12.345"
+    assert "state" not in entities
+    assert "power_reactive" not in entities
 
     with patch(POLL_READ, side_effect=RenonFlexError("offline")):
         await entry.runtime_data.async_refresh()
@@ -105,18 +115,15 @@ async def test_first_refresh_retries_when_offline(hass, entry):
     assert entry.state == ConfigEntryState.SETUP_RETRY
 
 
-@pytest.mark.parametrize("today", [True, False])
-async def test_energy_storage_restore(hass, entry, today):
-    coordinator = RenonFlexCoordinator(hass, entry)
-    day = dt_util.now().date().isoformat() if today else "2000-01-01"
-    await coordinator._store.async_save({"day": day, "kwh": 1.25})
-    await coordinator._async_setup()
+async def test_energy_is_read_from_inverter_after_reload(hass, entry):
     with patch(POLL_READ, return_value=REGISTERS):
-        data = await coordinator._async_update_data()
-    assert data["energy_today"] == (1.25 if today else 0)
-    await coordinator.async_shutdown()
-    snapshot = json.loads(Path(coordinator._store.path).read_text())
-    assert snapshot["data"]["kwh"] == data["energy_today"]
+        await hass.config_entries.async_add(entry)
+        await hass.async_block_till_done()
+    assert entry.runtime_data.data["energy_today"] == 12.345
+    with patch(POLL_READ, return_value={**REGISTERS, "energy_today": 12.678}):
+        await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.runtime_data.data["energy_today"] == 12.678
 
 
 async def test_duplicate_entry_aborts(hass, entry):
@@ -175,3 +182,76 @@ async def test_failed_reconfigure_keeps_existing_connection(hass, entry):
     assert result["errors"] == {"base": "cannot_connect"}
     assert entry.data["host"] == "127.0.0.1"
     assert entry.state == ConfigEntryState.LOADED
+
+
+@pytest.mark.parametrize(
+    "host", ["http://192.168.1.12", "192.168.1.12:8899", "192.168.1.12/path"]
+)
+async def test_invalid_host_never_opens_connection(hass, host):
+    with patch(FLOW_READ) as read:
+        result = await hass.config_entries.flow.async_init(
+            "renon_flex", context={"source": "user"}, data={"host": host}
+        )
+    assert result["errors"] == {"host": "invalid_host"}
+    read.assert_not_called()
+
+
+@pytest.mark.parametrize("key", ["invalid_registers", "read_timeout", "protocol_error"])
+async def test_flow_displays_actual_failure(hass, key, caplog):
+    detail = "Solarman V5 192.168.1.12:8899: test diagnostic detail"
+    with patch(FLOW_READ, side_effect=RenonFlexError(detail, error_key=key)):
+        result = await hass.config_entries.flow.async_init(
+            "renon_flex", context={"source": "user"}, data={"host": "192.168.1.12"}
+        )
+    assert result["errors"] == {"base": key}
+    assert result["description_placeholders"]["error_detail"] == detail
+    assert detail in caplog.text
+
+
+async def test_partial_profile_can_be_configured(hass):
+    partial = {**REGISTERS, "power_pv1": None, "power_active": None}
+    with patch(FLOW_READ, return_value=partial), patch(POLL_READ, return_value=partial):
+        result = await hass.config_entries.flow.async_init(
+            "renon_flex", context={"source": "user"}, data={"host": "127.0.0.1"}
+        )
+        await hass.async_block_till_done()
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    entry = result["result"]
+    assert entry.state == ConfigEntryState.LOADED
+    registry = er.async_get(hass)
+    entities = {
+        item.unique_id.removeprefix(f"{entry.entry_id}-"): item.entity_id
+        for item in er.async_entries_for_config_entry(registry, entry.entry_id)
+    }
+    assert hass.states.get(entities["power_pv1"]).state == "unavailable"
+    assert hass.states.get(entities["power_active"]).state == "unavailable"
+    assert hass.states.get(entities["power_pv2"]).state == "400.0"
+    assert hass.states.get(entities["voltage_dc"]).state == "360.0"
+    estimated_id = entities["power_pv1_estimated"]
+    estimated = hass.states.get(estimated_id)
+    assert estimated.state == "1080.0"
+    assert estimated.attributes["unit_of_measurement"] == "W"
+    assert estimated.attributes["device_class"] == "power"
+    assert estimated.attributes["state_class"] == "measurement"
+
+    entry.runtime_data.async_set_updated_data({**partial, "current_dc": 0.0})
+    await hass.async_block_till_done()
+    assert hass.states.get(estimated_id).state == "0.0"
+    entry.runtime_data.async_set_updated_data({**partial, "voltage_dc": None})
+    await hass.async_block_till_done()
+    assert hass.states.get(estimated_id).state == "unavailable"
+    entry.runtime_data.async_set_updated_data({**partial, "current_dc": None})
+    await hass.async_block_till_done()
+    assert hass.states.get(estimated_id).state == "unavailable"
+    entry.runtime_data.async_set_updated_data(partial)
+    await hass.async_block_till_done()
+    assert hass.states.get(estimated_id).state == "1080.0"
+    assert hass.states.get(entities["energy_today"]).state == "12.345"
+
+    entry.runtime_data.unsupported_blocks.add((0x227F, 1))
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["unsupported_blocks"] == [{"address": "0x227F", "count": 1}]
+    assert "power_pv1" in diagnostics["unavailable_measurements"]
+    assert "voltage_dc" in diagnostics["available_measurements"]
+    assert "host" not in diagnostics
+    assert "serial" not in diagnostics

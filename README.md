@@ -1,79 +1,139 @@
 # RENON FLEX per Home Assistant
 
-Integrazione locale per RENON FLEX-LV-EU-6K con Stick Logger LSW-5.
-Versione 1.1.0, verificata con **Home Assistant Core 2026.6.2 / Python 3.14**.
+Versione **1.2.2**, verificata con **Home Assistant Core 2026.6.2 / Python 3.14**.
+Integrazione locale per RENON FLEX-LV-EU-6K con Stick Logger LSW-5,
+con trasporti Solarman V5 e Modbus TCP.
 
-## Stato del supporto hardware
+## Correzione della mappa Modbus
 
-Il caricamento dell'integrazione in Home Assistant e il trasporto Modbus TCP
-sono verificati con test automatici e un server simulato. L'adattatore Solarman
-V5 è coperto da test con client simulato. Non è stata eseguita una prova sul
-logger fisico dell'utente.
+Le versioni 1.0–1.1 assumevano erroneamente che le misure fossero nei registri
+PDU 0–6. Una risposta Modbus `Illegal Data Address` conferma che il dispositivo
+rifiuta gli indirizzi richiesti: non è un fallimento di apertura della connessione.
 
-**La mappa dei registri presente nel progetto originale non è verificata con
-documentazione RENON.** Rimane configurata in `custom_components/renon_flex/const.py`:
-holding registers (funzione 03), indirizzi PDU 0–6, sei misure uint16 con fattore
-1 e un registro di stato. Il logger trasporta le richieste; i registri dipendono
-dall'inverter e dal firmware. Questa mappa deve essere confrontata con il
-protocollo Modbus del FLEX-LV-EU-6K prima di considerare attendibili i valori.
-Una connessione TCP riuscita, da sola, non conferma la mappa. Un errore
-`Illegal Data Address` può indicare indirizzi non supportati dall'inverter.
+La versione 1.2 usa un sottoinsieme del profilo community **RENON Flex IFL** di
+[ha-solarman](https://github.com/davidrapan/ha-solarman/blob/main/custom_components/solarman/inverter_definitions/renon_ifl.yaml).
+Il profilo pubblico è indicato come testato dal suo autore; non è una specifica
+ufficiale RENON. La compatibilità con il firmware dell'inverter dell'utente deve
+ancora essere confermata tramite una lettura reale. Se un blocco è rifiutato,
+il modulo di configurazione mostra il suo indirizzo preciso.
 
-Non sono stati sostituiti questi indirizzi con quelli di altri inverter RENON,
-perché la loro compatibilità con questo modello non è confermata.
+Tutti gli indirizzi seguenti sono PDU esadecimali, senza offset 40001.
+Si usa esclusivamente la funzione Modbus 03 (holding registers).
 
-## Installazione
+| Misura | Indirizzo | Conversione |
+| --- | --- | --- |
+| Tensione FV1 | `0x1690` | uint16 × 0,1 V |
+| Corrente FV1 | `0x1691` | uint16 × 0,1 A |
+| Tensione FV2 | `0x1692` | uint16 × 0,1 V |
+| Corrente FV2 | `0x1693` | uint16 × 0,1 A |
+| Potenza FV1 | `0x227F` | uint16 W |
+| Potenza FV2 | `0x2281` | uint16 W |
+| Tensione rete L1 | `0x3110` | uint16 × 0,1 V |
+| Corrente rete L1 | `0x3111` | uint16 × 0,1 A |
+| Energia FV prodotta oggi | `0x3153`, `0x3154` | uint32, parola bassa prima, × 0,001 kWh |
 
-1. Copia la cartella `custom_components/renon_flex` in
-   `/config/custom_components/renon_flex` dell'installazione Home Assistant.
-   Se aggiorni la versione precedente, sostituisci la cartella dell'integrazione.
+La decodifica dei valori a più parole segue il
+[parser del profilo originale](https://github.com/davidrapan/ha-solarman/blob/main/custom_components/solarman/parser.py).
+Le letture avvengono in cinque blocchi consecutivi sulla stessa connessione,
+senza includere indirizzi intermedi non definiti come `0x2280`.
+La versione 1.2.1 gestisce il supporto parziale del profilo. Se un blocco viene
+rifiutato con il codice Modbus 02, le sue misure risultano **non disponibili**;
+le letture degli altri blocchi proseguono. Un indirizzo rifiutato non viene
+interrogato a ogni aggiornamento: viene riprovato dopo il ricaricamento
+dell'integrazione o il riavvio. Timeout, errori di rete e gli altri codici Modbus
+continuano invece a rendere non disponibile tutto l'aggiornamento.
+
+Sul dispositivo dell'utente è stata confermata una lettura riuscita del blocco
+`0x1690–0x1693`, seguita dal rifiuto di `0x227F`. Questo conferma il supporto
+parziale della mappa, non l'assenza di comunicazione con il logger.
+Per identificare l'indirizzo alternativo della potenza FV1 serve ancora una
+mappa Modbus compatibile con il firmware effettivo: non è stato inventato un
+indirizzo sostitutivo né un valore stimato.
+
+## Installazione e aggiornamento
+
+1. Sostituisci la cartella `/config/custom_components/renon_flex` di Home Assistant
+   con `custom_components/renon_flex` contenuta nel pacchetto 1.2.2.
 2. Riavvia Home Assistant. Le dipendenze vengono installate automaticamente;
    durante questa prima installazione serve accesso al repository dei pacchetti Python.
 3. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione** e cerca
-   **RENON FLEX Stick Logger**.
-4. Inserisci l'IP locale del logger e i parametri del suo protocollo.
+   **RENON FLEX Stick Logger**. Se è già configurata, usa **Riconfigura**.
+4. Inserisci l'IP locale del logger e i parametri del protocollo.
 
-| Collegamento | Protocollo nella configurazione | Porta usuale | Seriale |
-| --- | --- | --- | --- |
-| Logger con Solarman V5 | Solarman V5 | 8899 | Numero numerico del **logger**, non dell'inverter |
-| Dispositivo/gateway con Modbus TCP nativo | Modbus TCP | 502 | Non richiesto |
+L'integrazione integrata chiamata **solarman** è un componente diverso. Un errore
+con sorgente `homeassistant.components.solarman.config_flow` e connessione HTTP
+alla porta 8080 non proviene da questo componente Solarman V5.
 
-L'ID unità Modbus predefinito è 1; deve corrispondere all'inverter.
-La porta è modificabile: selezionare il protocollo non cambia automaticamente
-il valore della porta. Per Solarman V5 occorre quindi inserire **8899**.
-Il protocollo disponibile dipende dal firmware del logger: il nome LSW-5
-non dimostra che Modbus TCP sulla porta 502 sia disponibile.
+| Campo | Per Stick Logger con Solarman V5 |
+| --- | --- |
+| Host | Solo l'IP del logger, per esempio `192.168.1.12` |
+| Protocollo | Solarman V5 |
+| Porta | 8899, se esposta dal firmware del logger |
+| ID unità Modbus | 1, salvo diversa configurazione dell'inverter |
+| Seriale | Numero numerico dello **Stick Logger**, non dell'inverter |
+| Timeout | 15 secondi per operazione, regolabile tra 3 e 60 |
 
-Le configurazioni create dalla versione 1.0.0 mantengono Modbus TCP e gli
-identificativi dei sensori. Per cambiare collegamento, IP o seriale, apri il menu
-dell'integrazione e scegli **Riconfigura**. Viene verificata una lettura prima
-di applicare la nuova configurazione. È supportata una sola istanza.
+Non inserire `http://`, percorsi o `:8899` nel campo Host.
+Per un gateway che espone Modbus TCP nativo, seleziona **Modbus TCP** e la sua
+porta, normalmente 502; il seriale non è richiesto. La porta non viene cambiata
+automaticamente quando si seleziona il protocollo.
 
-## Sensori
+La configurazione prova tutti i blocchi del profilo e crea l'istanza se almeno
+una misura è leggibile. Se tutti i blocchi vengono rifiutati, la configurazione
+fallisce con un errore di incompatibilità della mappa.
+La riconfigurazione conserva le entità esistenti e applica le nuove impostazioni
+solo dopo una lettura riuscita. È supportata una sola istanza.
 
-Vengono creati otto sensori: potenza attiva (W), potenza reattiva (var),
-tensione CC e CA (V), corrente CC e CA (A), stato inverter e stima dell'energia
-giornaliera (kWh). Tutti i dati vengono aggiornati ogni 10 secondi.
-L'integrazione esegue esclusivamente letture.
+## Sensori e migrazione
 
-L'energia giornaliera è una stima ottenuta integrando i campioni positivi della
-potenza attiva: `W × secondi / 3.600.000 = kWh`. L'interpretazione come produzione
-richiede che il registro della potenza rappresenti effettivamente quella misura.
-Il totale si azzera al primo campione del nuovo giorno nel fuso di Home Assistant.
-Viene salvato circa ogni minuto e allo scaricamento/arresto ordinato, quindi
-ripristinato ai riavvii nello stesso giorno. Un arresto improvviso può perdere
-l'ultimo minuto. I periodi con letture fallite, gli intervalli tra campioni oltre
-30 secondi e il tempo con Home Assistant spento non vengono stimati.
-Il sensore usa la classe `total_increasing`, compatibile con le statistiche
-energetiche di Home Assistant; i dati errati registrati dalla vecchia versione
-non vengono corretti retroattivamente.
+Sono disponibili **undici sensori**: le nove misure in tabella, la potenza FV
+totale calcolata come somma di FV1 e FV2 e **Potenza FV1 stimata**.
+L'aggiornamento avviene ogni 10 secondi.
 
-## Diagnosi della connessione
+**Potenza FV1 stimata** calcola `Tensione FV1 (V) × Corrente FV1 (A) = Potenza (W)`
+dai valori dello stesso aggiornamento. Funziona anche quando il registro della
+potenza FV1 è rifiutato. Per esempio, 360 V × 3 A = 1080 W. Se manca una delle
+due misure o la comunicazione fallisce, il sensore diventa non disponibile;
+uno zero misurato produce invece correttamente 0 W. È una stima della potenza
+continua istantanea del solo canale FV1, prima delle perdite di conversione
+dell'inverter, e non un contatore di energia in kWh.
+Le misure non supportate dal firmware restano non disponibili, senza zeri
+sostitutivi. La potenza totale richiede entrambe le potenze: non viene calcolata
+come una somma parziale quando un canale manca. Anche l'energia giornaliera
+resta non disponibile se il suo registro è rifiutato.
 
-Se la configurazione fallisce, controlla IP locale, protocollo, porta, ID Modbus,
-seriale del logger (per Solarman) e mappa dei registri. Evita altri client
-contemporanei se il logger accetta una sola connessione.
-Per maggiori dettagli abilita temporaneamente:
+L'energia giornaliera è ora il contatore dell'inverter, anziché una stima
+integrata da Home Assistant. Rimane disponibile ai riavvii perché viene riletta
+dal dispositivo e segue l'azzeramento giornaliero effettuato dall'inverter.
+Il sensore usa `total_increasing`. La versione 1.2 non usa più il totale stimato
+salvato dalle versioni precedenti e non modifica retroattivamente le statistiche.
+I vecchi file `.storage/renon_flex.*`, se presenti, non vengono letti.
+
+Sono conservati gli identificativi delle misure esistenti, con nomi più precisi:
+CC indica ora esplicitamente FV1 e CA indica la rete L1. Potenza reattiva e stato
+inverter non vengono più creati: mancava una corrispondenza affidabile nel
+profilo scelto. Eventuali entità residue delle vecchie versioni rimangono
+non disponibili e possono essere rimosse dall'interfaccia di Home Assistant.
+
+## Diagnosi
+
+Il modulo mostra il dettaglio dell'errore e lo registra anche senza debug:
+
+- **Connessione rifiutata**: quel tentativo di apertura TCP è stato rifiutato.
+- **Nome non risolto**: controlla il campo Host o la risoluzione DNS.
+- **Timeout di lettura**: connessione aperta ma nessuna risposta valida entro
+  il tempo previsto; verifica protocollo, seriale e ID Modbus.
+- **Registri rifiutati**: il dispositivo ha restituito un errore Modbus 02.
+  L'indirizzo esadecimale mostrato identifica il blocco non supportato.
+  Se altre misure sono supportate, la configurazione prosegue e il blocco
+  rifiutato viene segnalato nei registri come `Unsupported register block skipped`.
+
+Dal menu dell'integrazione è possibile **scaricare la diagnostica**: contiene
+i blocchi rifiutati e gli elenchi delle misure disponibili e non disponibili,
+senza esportare l'indirizzo IP né il seriale del logger.
+
+Evita client contemporanei se il logger accetta una sola connessione.
+Per ulteriori dettagli puoi abilitare temporaneamente:
 
 ```yaml
 logger:
@@ -82,9 +142,9 @@ logger:
     custom_components.renon_flex: debug
 ```
 
-## Verifica dello sviluppo
+## Test
 
-In un ambiente con Python 3.14:
+Con Python 3.14:
 
 ```bash
 python3 -m venv .venv
@@ -92,12 +152,8 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-I test verificano configurazione e riconfigurazione, caricamento degli otto
-sensori con le API effettive di Core 2026.6.2, disponibilità e recupero,
-ripristino dell'energia, mezzanotte e cambio dell'ora, errori Modbus,
-chiusura delle connessioni e adattatore Solarman. I test Modbus aprono
-esclusivamente un server locale temporaneo su `127.0.0.1`.
-
-Riferimenti: [coordinatore di Core 2026.6.2](https://github.com/home-assistant/core/blob/2026.6.2/homeassistant/helpers/update_coordinator.py),
-[dipendenza Modbus di Core 2026.6.2](https://github.com/home-assistant/core/blob/2026.6.2/homeassistant/components/modbus/manifest.json),
-[protocollo e libreria Solarman V5](https://github.com/jmccrohan/pysolarmanv5).
+La suite verifica le API reali di Core 2026.6.2 per configurazione,
+riconfigurazione e sensori; usa i veri client Modbus e Solarman contro server
+TCP simulati su `127.0.0.1`. Controlla indirizzi, conversioni, ordine delle parole,
+riavvio del coordinatore, errori del dispositivo, timeout e chiusura delle
+connessioni. Non sostituisce la verifica sul logger fisico dell'utente.

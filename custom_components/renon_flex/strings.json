@@ -3,30 +3,41 @@
     "step": {
       "user": {
         "title": "RENON FLEX Stick Logger",
-        "description": "Enter the logger connection details. For Solarman V5 normally use port 8899 and the logger serial number (not the inverter serial); for Modbus TCP use the device port (normally 502). The register map must match the inverter firmware.",
+        "description": "RENON Flex IFL community profile. Enter only the logger IP address. For Solarman V5 use port 8899 and the numeric logger serial, not the inverter serial. For Modbus TCP use the gateway port. Measurements unsupported by the firmware will remain unavailable.\n\n{error_detail}",
         "data": {
           "host": "Host (IP address or hostname)",
           "port": "Port",
           "slave_id": "Modbus unit ID",
           "protocol": "Protocol",
-          "serial": "Logger serial number (Solarman V5 only)"
+          "serial": "Logger serial number (Solarman V5 only)",
+          "timeout": "Timeout (seconds)"
         }
       },
       "reconfigure": {
         "title": "RENON FLEX Stick Logger",
-        "description": "Enter the logger connection details. For Solarman V5 normally use port 8899 and the logger serial number (not the inverter serial); for Modbus TCP use the device port (normally 502). The register map must match the inverter firmware.",
+        "description": "RENON Flex IFL community profile. Enter only the logger IP address. For Solarman V5 use port 8899 and the numeric logger serial, not the inverter serial. For Modbus TCP use the gateway port. Measurements unsupported by the firmware will remain unavailable.\n\n{error_detail}",
         "data": {
           "host": "Host (IP address or hostname)",
           "port": "Port",
           "slave_id": "Modbus unit ID",
           "protocol": "Protocol",
-          "serial": "Logger serial number (Solarman V5 only)"
+          "serial": "Logger serial number (Solarman V5 only)",
+          "timeout": "Timeout (seconds)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the device. Check host, port and Modbus unit ID.",
-      "serial_required": "Enter the logger serial number for Solarman V5."
+      "cannot_connect": "Could not open a TCP connection to the logger. Check that the port is open and the selected protocol is available.",
+      "serial_required": "Enter the logger serial number for Solarman V5.",
+      "invalid_host": "Enter only the logger IP address or hostname, without http://, paths or port.",
+      "connect_timeout": "The logger did not accept the connection in time. Check network and port.",
+      "read_timeout": "TCP connection opened, but no valid response arrived in time. Check protocol, logger serial number, Modbus unit ID and timeout.",
+      "invalid_registers": "The device responded, but no measurements from the RENON Flex IFL profile could be read. A firmware-compatible register map is required.",
+      "unsupported_function": "The device responded but does not support the requested Modbus function.",
+      "modbus_error": "The device returned a Modbus error. See the details above.",
+      "protocol_error": "Invalid Solarman V5 response. Check logger serial number and protocol compatibility.",
+      "invalid_response": "The device returned an unexpected register count. Check the Modbus register map.",
+      "read_error": "The connection opened, but reading failed. See the details above."
     },
     "abort": {
       "single_instance_allowed": "This device is already configured.",
@@ -36,28 +47,37 @@
   "entity": {
     "sensor": {
       "power_active": {
-        "name": "Active power"
-      },
-      "power_reactive": {
-        "name": "Reactive power"
+        "name": "Total PV power"
       },
       "voltage_dc": {
-        "name": "DC voltage"
+        "name": "PV1 voltage"
       },
       "voltage_ac": {
-        "name": "AC voltage"
+        "name": "Grid L1 voltage"
       },
       "current_dc": {
-        "name": "DC current"
+        "name": "PV1 current"
       },
       "current_ac": {
-        "name": "AC current"
-      },
-      "state": {
-        "name": "Inverter state"
+        "name": "Grid L1 current"
       },
       "energy_today": {
-        "name": "Energy today"
+        "name": "PV energy today"
+      },
+      "voltage_dc2": {
+        "name": "PV2 voltage"
+      },
+      "current_dc2": {
+        "name": "PV2 current"
+      },
+      "power_pv1": {
+        "name": "PV1 power"
+      },
+      "power_pv2": {
+        "name": "PV2 power"
+      },
+      "power_pv1_estimated": {
+        "name": "Estimated PV1 power"
       }
     }
   }
