@@ -199,10 +199,21 @@ async def async_read_data(
         if any(raw[register.address + i] is None for i in range(register.count)):
             result[register.key] = None
             continue
-        value = sum(
-            raw[register.address + i] << (16 * i) for i in range(register.count)
-        )
-        result[register.key] = round(value * register.scale, 6)
+        words = [raw[register.address + i] for i in range(register.count)]
+        if register.high_word_first:
+            words.reverse()
+        value = sum(word << (16 * i) for i, word in enumerate(words))
+        bits = 16 * register.count
+        if register.signed and value & (1 << (bits - 1)):
+            value -= 1 << bits
+        measured = round(value * register.scale, 6)
+        if (register.min_value is not None and measured < register.min_value) or (
+            register.max_value is not None and measured > register.max_value
+        ):
+            _LOGGER.debug("Out-of-range %s value ignored: %s", register.key, measured)
+            result[register.key] = None
+        else:
+            result[register.key] = measured
     if all(value is None for value in result.values()):
         raise RenonFlexError(
             "The device rejected every block of the RENON Flex IFL profile; "

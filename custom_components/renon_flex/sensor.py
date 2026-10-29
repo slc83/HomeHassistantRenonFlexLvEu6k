@@ -24,6 +24,9 @@ DEVICE_CLASSES = {
     "voltage": SensorDeviceClass.VOLTAGE,
     "current": SensorDeviceClass.CURRENT,
     "energy": SensorDeviceClass.ENERGY,
+    "battery": SensorDeviceClass.BATTERY,
+    "temperature": SensorDeviceClass.TEMPERATURE,
+    "frequency": SensorDeviceClass.FREQUENCY,
 }
 
 STATE_CLASSES = {

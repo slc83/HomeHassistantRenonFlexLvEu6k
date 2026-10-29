@@ -21,6 +21,11 @@ REGISTERS = {
     "voltage_ac": 230.0,
     "current_ac": 4.0,
     "energy_today": 12.345,
+    "battery_soc": 78.5,
+    "battery_power": -1234.0,
+    "battery_charge_today": 6.0,
+    "battery_discharge_today": 7.0,
+    "load_energy_today": 12.345,
 }
 FLOW_READ = "custom_components.renon_flex.config_flow.async_read_data"
 POLL_READ = "custom_components.renon_flex.coordinator.async_read_data"
@@ -79,7 +84,7 @@ async def test_setup_sensors_unavailability_recovery_and_unload(hass, entry):
         item.unique_id.removeprefix(f"{entry.entry_id}-"): item.entity_id
         for item in er.async_entries_for_config_entry(registry, entry.entry_id)
     }
-    assert len(entities) == 11
+    assert len(entities) == 29
     power = hass.states.get(entities["power_active"])
     assert power.state == "1000.0"
     assert (
@@ -93,6 +98,15 @@ async def test_setup_sensors_unavailability_recovery_and_unload(hass, entry):
     assert energy.state == "12.345"
     assert "state" not in entities
     assert "power_reactive" not in entities
+    battery = hass.states.get(entities["battery_soc"])
+    assert battery.state == "78.5"
+    assert battery.attributes["unit_of_measurement"] == "%"
+    assert battery.attributes["device_class"] == "battery"
+    assert hass.states.get(entities["battery_power"]).state == "-1234.0"
+    for key in ("battery_charge_today", "battery_discharge_today", "load_energy_today"):
+        measured = hass.states.get(entities[key])
+        assert measured.attributes["unit_of_measurement"] == "kWh"
+        assert measured.attributes["state_class"] == "total_increasing"
 
     with patch(POLL_READ, side_effect=RenonFlexError("offline")):
         await entry.runtime_data.async_refresh()

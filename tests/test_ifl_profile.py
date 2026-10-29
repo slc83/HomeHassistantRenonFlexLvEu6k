@@ -2,6 +2,7 @@
 
 import asyncio
 import struct
+from unittest.mock import patch
 
 import pytest
 from umodbus.client.serial.redundancy_check import get_crc
@@ -20,11 +21,43 @@ WORDS = {
     0x3111: 65,
     0x3153: 0x2345,
     0x3154: 1,
+    0x3140: 512,
+    0x3141: 0xFF85,
+    0x314A: 0xFB2E,
+    0x3145: 785,
+    0x3146: 0xFFC9,
+    0x3119: 5002,
+    0x2284: 0xFFFE,
+    0x2285: 0xEE90,
+    0x2288: 1,
+    0x2289: 0x1170,
+    0x3157: 12345,
+    0x3158: 0,
+    0x3165: 1000,
+    0x3166: 2,
+    0x316B: 2000,
+    0x316C: 0,
+    0x3155: 3000,
+    0x3156: 0,
+    0x317D: 4000,
+    0x317E: 2,
+    0x3167: 5000,
+    0x3168: 2,
+    0x316D: 6000,
+    0x316E: 0,
+    0x316F: 7000,
+    0x3170: 0,
+    0x317F: 8000,
+    0x3180: 2,
+    0x3181: 9000,
+    0x3182: 2,
 }
 
 
 @pytest.mark.parametrize("solarman", [False, True])
-@pytest.mark.parametrize("rejected", [None, 0x1690, 0x227F, 0x2281, "all"])
+@pytest.mark.parametrize(
+    "rejected", [None, 0x1690, 0x227F, 0x2281, 0x3145, 0x316D, "all"]
+)
 async def test_ifl_real_transports(solarman, rejected):
     done = asyncio.Event()
     requests = []
@@ -114,6 +147,24 @@ async def test_ifl_real_transports(solarman, rejected):
                 "voltage_ac": 230.5,
                 "current_ac": 6.5,
                 "energy_today": 74.565,
+                "battery_voltage": 51.2,
+                "battery_current": -1.23,
+                "battery_power": -1234.0,
+                "battery_soc": 78.5,
+                "battery_temperature": -5.5,
+                "grid_frequency": 50.02,
+                "grid_power": -70000.0,
+                "load_power": 70000.0,
+                "load_energy_today": 12.345,
+                "energy_total": 132.072,
+                "grid_import_today": 2.0,
+                "grid_export_today": 3.0,
+                "grid_import_total": 135.072,
+                "grid_export_total": 136.072,
+                "battery_charge_today": 6.0,
+                "battery_discharge_today": 7.0,
+                "battery_charge_total": 139.072,
+                "battery_discharge_total": 140.072,
             }
             if rejected is not None:
                 address, count = next(
@@ -139,3 +190,18 @@ def test_profile_blocks_cover_only_defined_words():
     }
     assert defined == requested
     assert 0x2280 not in requested
+
+
+@pytest.mark.parametrize("soc", [1001, 0xFFFF])
+async def test_invalid_battery_percentage_is_unavailable(soc):
+    words = {**WORDS, 0x3145: soc}
+    raw_values = [
+        words[address + i] for address, count in const.READ_BLOCKS for i in range(count)
+    ]
+    with patch(
+        "custom_components.renon_flex.client.async_read_registers",
+        return_value=raw_values,
+    ):
+        result = await async_read_data({})
+    assert result["battery_soc"] is None
+    assert result["battery_power"] == -1234.0

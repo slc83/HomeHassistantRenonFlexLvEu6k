@@ -78,6 +78,60 @@
       },
       "power_pv1_estimated": {
         "name": "Potenza FV1 stimata"
+      },
+      "battery_voltage": {
+        "name": "Tensione batteria"
+      },
+      "battery_current": {
+        "name": "Corrente batteria"
+      },
+      "battery_power": {
+        "name": "Potenza batteria"
+      },
+      "battery_soc": {
+        "name": "Carica batteria"
+      },
+      "battery_temperature": {
+        "name": "Temperatura batteria"
+      },
+      "grid_frequency": {
+        "name": "Frequenza rete"
+      },
+      "grid_power": {
+        "name": "Potenza rete"
+      },
+      "load_power": {
+        "name": "Potenza consumata"
+      },
+      "load_energy_today": {
+        "name": "Energia consumata oggi"
+      },
+      "energy_total": {
+        "name": "Energia FV prodotta totale"
+      },
+      "grid_import_today": {
+        "name": "Energia prelevata dalla rete oggi"
+      },
+      "grid_export_today": {
+        "name": "Energia immessa in rete oggi"
+      },
+      "grid_import_total": {
+        "name": "Energia prelevata dalla rete totale"
+      },
+      "grid_export_total": {
+        "name": "Energia immessa in rete totale"
+      },
+      "battery_charge_today": {
+        "name": "Energia caricata in batteria oggi"
+      },
+      "battery_discharge_today": {
+        "name": "Energia scaricata dalla batteria oggi"
+      },
+      "battery_charge_total": {
+        "name": "Energia caricata in batteria totale"
+      },
+      "battery_discharge_total": {
+        "name": "Energia scaricata dalla batteria totale"
       }
     }
   }

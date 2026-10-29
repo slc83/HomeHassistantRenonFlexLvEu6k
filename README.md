@@ -1,6 +1,6 @@
 # RENON FLEX per Home Assistant
 
-Versione **1.2.2**, verificata con **Home Assistant Core 2026.6.2 / Python 3.14**.
+Versione **1.3.0**, verificata con **Home Assistant Core 2026.6.2 / Python 3.14**.
 Integrazione locale per RENON FLEX-LV-EU-6K con Stick Logger LSW-5,
 con trasporti Solarman V5 e Modbus TCP.
 
@@ -34,7 +34,7 @@ Si usa esclusivamente la funzione Modbus 03 (holding registers).
 
 La decodifica dei valori a più parole segue il
 [parser del profilo originale](https://github.com/davidrapan/ha-solarman/blob/main/custom_components/solarman/parser.py).
-Le letture avvengono in cinque blocchi consecutivi sulla stessa connessione,
+Le letture avvengono in blocchi separati sulla stessa connessione,
 senza includere indirizzi intermedi non definiti come `0x2280`.
 La versione 1.2.1 gestisce il supporto parziale del profilo. Se un blocco viene
 rifiutato con il codice Modbus 02, le sue misure risultano **non disponibili**;
@@ -53,7 +53,7 @@ indirizzo sostitutivo né un valore stimato.
 ## Installazione e aggiornamento
 
 1. Sostituisci la cartella `/config/custom_components/renon_flex` di Home Assistant
-   con `custom_components/renon_flex` contenuta nel pacchetto 1.2.2.
+   con `custom_components/renon_flex` contenuta nel pacchetto 1.3.0.
 2. Riavvia Home Assistant. Le dipendenze vengono installate automaticamente;
    durante questa prima installazione serve accesso al repository dei pacchetti Python.
 3. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione** e cerca
@@ -86,9 +86,50 @@ solo dopo una lettura riuscita. È supportata una sola istanza.
 
 ## Sensori e migrazione
 
-Sono disponibili **undici sensori**: le nove misure in tabella, la potenza FV
-totale calcolata come somma di FV1 e FV2 e **Potenza FV1 stimata**.
+Sono disponibili **29 sensori**: gli undici sensori fotovoltaici/rete precedenti,
+compresa **Potenza FV1 stimata**, e 18 nuovi sensori di batteria, consumi e rete.
 L'aggiornamento avviene ogni 10 secondi.
+
+### Batteria, consumi e rete (novità 1.3.0)
+
+I nuovi indirizzi seguono il medesimo profilo community citato sopra. Ogni
+misura aggiuntiva viene interrogata separatamente: un registro non supportato
+non impedisce di leggere, per esempio, la percentuale di carica della batteria.
+La compatibilità e la corrispondenza con l'app vanno verificate sul dispositivo.
+
+| Misura | Indirizzo PDU | Tipo e fattore |
+| --- | --- | --- |
+| Tensione batteria | `0x3140` | uint16 × 0,1 V |
+| Corrente batteria | `0x3141` | int16 × 0,01 A |
+| Potenza batteria | `0x314A` | int16 W |
+| Carica batteria (SOC) | `0x3145` | uint16 × 0,1 % |
+| Temperatura batteria | `0x3146` | int16 × 0,1 °C |
+| Frequenza rete | `0x3119` | uint16 × 0,01 Hz |
+| Potenza rete | `0x2284–0x2285` | int32, parola alta prima, W |
+| Potenza consumata | `0x2288–0x2289` | uint32, parola alta prima, W |
+| Energia consumata oggi | `0x3157–0x3158` | int32 × 0,001 kWh |
+| Produzione FV totale | `0x3165–0x3166` | uint32 × 0,001 kWh |
+| Energia prelevata dalla rete oggi | `0x316B–0x316C` | uint32 × 0,001 kWh |
+| Energia immessa in rete oggi | `0x3155–0x3156` | uint32 × 0,001 kWh |
+| Energia prelevata dalla rete totale | `0x317D–0x317E` | uint32 × 0,001 kWh |
+| Energia immessa in rete totale | `0x3167–0x3168` | uint32 × 0,001 kWh |
+| Energia caricata in batteria oggi | `0x316D–0x316E` | uint32 × 0,001 kWh |
+| Energia scaricata dalla batteria oggi | `0x316F–0x3170` | uint32 × 0,001 kWh |
+| Energia caricata in batteria totale | `0x317F–0x3180` | uint32 × 0,001 kWh |
+| Energia scaricata dalla batteria totale | `0x3181–0x3182` | uint32 × 0,001 kWh |
+
+Salvo dove indicato, i valori a 32 bit hanno la parola bassa per prima.
+Le correnti e le potenze con segno mantengono il segno restituito dall'inverter;
+il verso positivo/negativo va confrontato con l'app prima di interpretarlo come
+carica/scarica o prelievo/immissione. I contatori di energia caricata e scaricata
+sono invece sensori distinti. Il SOC fuori dall'intervallo 0–100 % viene
+segnalato come non disponibile, senza trasformarlo in una percentuale plausibile.
+
+La potenza istantanea è in **W** (1000 W = 1 kW); l'energia consumata, caricata
+o scaricata è in **kWh**. I contatori energetici usano `total_increasing` per le
+statistiche e il pannello Energia di Home Assistant. Il consumo totale storico
+non è stato aggiunto: il profilo di riferimento ne contiene una coppia di
+indirizzi incongruente, che richiede conferma con una mappa del firmware.
 
 **Potenza FV1 stimata** calcola `Tensione FV1 (V) × Corrente FV1 (A) = Potenza (W)`
 dai valori dello stesso aggiornamento. Funziona anche quando il registro della

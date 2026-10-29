@@ -78,6 +78,60 @@
       },
       "power_pv1_estimated": {
         "name": "Estimated PV1 power"
+      },
+      "battery_voltage": {
+        "name": "Battery voltage"
+      },
+      "battery_current": {
+        "name": "Battery current"
+      },
+      "battery_power": {
+        "name": "Battery power"
+      },
+      "battery_soc": {
+        "name": "Battery charge"
+      },
+      "battery_temperature": {
+        "name": "Battery temperature"
+      },
+      "grid_frequency": {
+        "name": "Grid frequency"
+      },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "load_power": {
+        "name": "Load power"
+      },
+      "load_energy_today": {
+        "name": "Load energy today"
+      },
+      "energy_total": {
+        "name": "Total PV energy"
+      },
+      "grid_import_today": {
+        "name": "Grid import today"
+      },
+      "grid_export_today": {
+        "name": "Grid export today"
+      },
+      "grid_import_total": {
+        "name": "Total grid import"
+      },
+      "grid_export_total": {
+        "name": "Total grid export"
+      },
+      "battery_charge_today": {
+        "name": "Battery charge energy today"
+      },
+      "battery_discharge_today": {
+        "name": "Battery discharge energy today"
+      },
+      "battery_charge_total": {
+        "name": "Total battery charge energy"
+      },
+      "battery_discharge_total": {
+        "name": "Total battery discharge energy"
       }
     }
   }

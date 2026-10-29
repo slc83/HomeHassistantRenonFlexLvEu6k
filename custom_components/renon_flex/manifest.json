@@ -1,7 +1,7 @@
 {
   "domain": "renon_flex",
   "name": "RENON FLEX Stick Logger",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "config_flow": true,
   "dependencies": [],
   "iot_class": "local_polling",
